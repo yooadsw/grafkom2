@@ -2,10 +2,9 @@
 <html>
     <head>
         <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
-
         <title>Luna Snow</title>
 
-        <!-- Babylon.js -->
+        <!-- Babylon.js CDN lengkap -->
         <script src="https://cdnjs.cloudflare.com/ajax/libs/dat-gui/0.6.2/dat.gui.min.js"></script>
         <script src="https://assets.babylonjs.com/generated/Assets.js"></script>
         <script src="https://cdn.babylonjs.com/recast.js"></script>
@@ -25,21 +24,18 @@
         <script src="https://cdn.babylonjs.com/inspector/babylon.inspector.bundle.js"></script>
 
         <style>
-            html,
-            body {
+            html, body {
                 overflow: hidden;
                 width: 100%;
                 height: 100%;
                 margin: 0;
                 padding: 0;
             }
-
             #renderCanvas {
                 width: 100%;
                 height: 100%;
                 touch-action: none;
             }
-
             #canvasZone {
                 width: 100%;
                 height: 100%;
@@ -49,64 +45,110 @@
     <body>
         <div id="canvasZone"><canvas id="renderCanvas"></canvas></div>
         <script>
-                    var canvas = document.getElementById("renderCanvas");
+            var canvas = document.getElementById("renderCanvas");
 
-                    var startRenderLoop = function (engine, canvas) {
-                        engine.runRenderLoop(function () {
-                            if (sceneToRender && sceneToRender.activeCamera) {
-                                sceneToRender.render();
-                            }
-                        });
+            var startRenderLoop = function (engine, canvas) {
+                engine.runRenderLoop(function () {
+                    if (sceneToRender && sceneToRender.activeCamera) {
+                        sceneToRender.render();
                     }
+                });
+            };
 
-                    var engine = null;
-        var scene = null;
-        var sceneToRender = null;
-        var createDefaultEngine = function() { return new BABYLON.Engine(canvas, true, { preserveDrawingBuffer: true, stencil: true,  disableWebGL2Support: false}); };
-        class Playground {
-            static async CreateScene(engine) {
-                const scene = new BABYLON.Scene(engine);
-                // Create a default skybox with an environment.
-                const hdrTexture = BABYLON.CubeTexture.CreateFromPrefilteredData("textures/environment.dds", scene);
-                const currentSkybox = scene.createDefaultSkybox(hdrTexture, true);
-                await BABYLON.SceneLoader.ImportMeshAsync("", "models/", "luna_snow.glb", scene);
-                scene.createDefaultCameraOrLight(true, true, true);
-                const camera = scene.activeCamera;
-                camera.alpha = Math.PI / 2;
-                return scene;
+            var engine = null;
+            var scene = null;
+            var sceneToRender = null;
+
+            var createDefaultEngine = function() {
+                return new BABYLON.Engine(canvas, true, {
+                    preserveDrawingBuffer: true,
+                    stencil: true,
+                    disableWebGL2Support: false
+                });
+            };
+
+            class Playground {
+                static async CreateScene(engine) {
+                    const scene = new BABYLON.Scene(engine);
+                    scene.clearColor = new BABYLON.Color3(0.02, 0.02, 0.05);
+
+                  
+                    scene.environmentTexture = BABYLON.CubeTexture.CreateFromPrefilteredData(
+                        "https://assets.babylonjs.com/environments/environmentSpecular.env",
+                        scene
+                    );
+                    scene.createDefaultSkybox(scene.environmentTexture, true, 1000, 0.5);
+
+                  
+                    const camera = new BABYLON.ArcRotateCamera("camera", Math.PI / 2, Math.PI / 2.5, 5, new BABYLON.Vector3(0, 1.5, 0), scene);
+                    camera.attachControl(canvas, true);
+
+                 
+                    const spotLight = new BABYLON.SpotLight("spotLight",
+                        new BABYLON.Vector3(0, 4, -3),
+                        new BABYLON.Vector3(0, -1, 1),
+                        Math.PI / 2.5,
+                        2,
+                        scene
+                    );
+                    spotLight.intensity = 150;
+
+                
+                    const bulb = BABYLON.MeshBuilder.CreateSphere("bulb", { diameter: 0.1 }, scene);
+                    bulb.position = spotLight.position;
+                    const bulbMat = new BABYLON.StandardMaterial("bulbMat", scene);
+                    bulbMat.emissiveColor = new BABYLON.Color3(1, 1, 0.9);
+                    bulb.material = bulbMat;
+
+                  
+                    const hemiLight = new BABYLON.HemisphericLight("hemiLight", new BABYLON.Vector3(0, 1, 0), scene);
+                    hemiLight.intensity = 0.2;
+
+                  
+                    const result = await BABYLON.SceneLoader.ImportMeshAsync("", "models/", "luna_snow.glb", scene);
+
+                    result.meshes.forEach(mesh => {
+                        mesh.receiveShadows = true;
+                        if (mesh.material) {
+                            mesh.material.needDepthPrePass = true;
+                            mesh.material.disableLighting = false;
+                        }
+                    });
+
+                    return scene;
+                }
             }
-        }
-        createScene = function() { return Playground.CreateScene(engine, engine.getRenderingCanvas()); }
-                window.initFunction = async function() {
-                    
-                    
-                    
-                    var asyncEngineCreation = async function() {
-                        try {
+
+            createScene = function() {
+                return Playground.CreateScene(engine, engine.getRenderingCanvas());
+            };
+
+            window.initFunction = async function() {
+                var asyncEngineCreation = async function() {
+                    try {
                         return createDefaultEngine();
-                        } catch(e) {
+                    } catch (e) {
                         console.log("the available createEngine function failed. Creating the default engine instead");
                         return createDefaultEngine();
-                        }
                     }
+                }
 
-                    window.engine = await asyncEngineCreation();
-                    
-                    const engineOptions = window.engine.getCreationOptions();
-                    if (engineOptions.audioEngine !== false) {
-                        
-                    }
-        if (!engine) throw 'engine should not be null.';
-        startRenderLoop(engine, canvas);
-window.scene = createScene();};
-        initFunction().then(() => {scene.then(returnedScene => { sceneToRender = returnedScene; });
-        
-                    });
+                window.engine = await asyncEngineCreation();
+                if (!engine) throw 'engine should not be null.';
+                startRenderLoop(engine, canvas);
 
-                    // Resize
-                    window.addEventListener("resize", function () {
-                        engine.resize();
-                    });
+                window.scene = createScene();
+            };
+
+            initFunction().then(() => {
+                scene.then(returnedScene => {
+                    sceneToRender = returnedScene;
+                });
+            });
+
+            window.addEventListener("resize", function () {
+                engine.resize();
+            });
         </script>
     </body>
 </html>
